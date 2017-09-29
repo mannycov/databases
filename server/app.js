@@ -1,3 +1,5 @@
+//var connection = require('db/index.js');
+var mysql = require('mysql');
 var express = require('express');
 var db = require('./db');
 

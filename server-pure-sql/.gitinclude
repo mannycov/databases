@@ -1,0 +1,196 @@
+var models = require('../models');
+var bluebird = require('bluebird');
+
+var userFields = ['username'];
+var messageFields = ['message', 'username', 'roomname'];
+
+module.exports = {
+  messages: {
+    get: function (req, res) {
+      models.messages.get(function(err, results) {
+        if (err) {
+          console.log(err);
+        } else {
+          res.json(results);
+        }
+      });
+    }, // a function which handles a get request for all messages
+    post: function (req, res) {
+      var params = [ req.body[text], req.body[username], req.body[roomname] ]
+      models.messages.post(params, function(err, results) {
+        if (err) {
+          console.log(err);
+        } else {
+          res.json(results);
+        }
+      });
+    } // a function which handles posting a message to the database
+  },
+
+  users: {
+    // Ditto as above
+    get: function (req, res) {
+      models.users.get(function(err, results) {
+        if (err) {
+          console.log(err);
+        } else {
+          res.json(results);
+        }
+      });
+    },
+    post: function (req, res) {
+     var params = [ req.body[username] ]
+      models.users.post(params, function(err, results) {
+        if (err) {
+          console.log(err);
+        } else {
+          res.json(results);
+        }
+      });
+    }
+  }
+};
+
+var mysql = require('mysql');
+
+// Create a database connection and export it from this file.
+// You will need to connect with the user "root", no password,
+// and to the database "chat".
+
+var connection = mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  port: 3000,
+  password: '',
+  database: 'chat'
+});
+
+connection.connect(function(err) {
+  if (err) {
+    console.error('Error connecting:', err.stack);
+
+  }
+  console.log('Connected as', connection.threadId);
+});
+
+module.exports = connection;
+
+var db = require('../db');
+
+module.exports = {
+  messages: {
+    get: function (callback) {
+      // get all messages
+      // from the message, get id, text, roomname, and username
+      var queryStr = 'select messages.id, messages.text, messages.roomname, users.username from messages \
+                      left outer join users on (messages.userid = users.id) \
+                      order by messages.id desc';
+      db.query(queryStr, function(err, results) {
+        callback(results);
+      });
+
+    }, // a function which produces all the messages
+    post: function (params, callback) {
+      // create a message
+      var queryStr = 'insert into messages(text, userid, roomname) \
+                      values(?, (select id from users where username = ? limit 1), ?)';
+      db.query(queryStr, params, function(err, results) {
+        callback(results);
+      });
+    } // a function which can be used to insert a message into the database
+  },
+
+  users: {
+    // Ditto as above.
+    get: function (callback) {
+      // get all users
+      var queryStr = 'select * from users';
+      db.query(queryStr, function(err, results) {
+        callback(results);
+      });
+    },
+    post: function (params, callback) {
+      // create a user
+      var queryStr = 'insert into users(username) values(?)';
+      db.query(queryStr, params, function(err, results) {
+        callback(results);
+      });
+    }
+  }
+};
+
+//var connection = require('db/index.js');
+var mysql = require('mysql');
+var express = require('express');
+var db = require('./db');
+
+// Middleware
+var morgan = require('morgan');
+var parser = require('body-parser');
+
+// Router
+var router = require('./routes.js');
+
+var app = express();
+module.exports.app = app;
+
+// Set what we are listening on.
+app.set('port', 3000);
+
+// Logging and parsing
+app.use(morgan('dev'));
+app.use(parser.json());
+
+// Set up our routes
+app.use('/classes', router);
+
+// Serve the client files
+app.use(express.static(__dirname + '/../client'));
+
+// If we are being run directly, run the server.
+if (!module.parent) {
+  app.listen(app.get('port'));
+  console.log('Listening on', app.get('port'));
+}
+
+var controller = require('./controllers');
+var router = require('express').Router();
+
+//Connect controller methods to their corresponding routes
+router.get('/messages', controller.messages.get);
+
+router.post('/messages', controller.messages.post);
+
+router.get('/users', controller.users.get);
+
+router.post('/users', controller.users.post);
+
+
+module.exports = router;
+
+DROP DATABASE chat;
+CREATE DATABASE chat;
+
+USE chat;
+
+/* Create other tables and define schemas for them here! */
+
+CREATE TABLE messages (
+  /* Describe your table here.*/
+  id int NOT NULL AUTO_INCREMENT,
+  userid int NOT NULL,
+  text varchar(200) NOT NULL,
+  roomname varchar(20),
+  PRIMARY KEY (ID)
+);
+
+CREATE TABLE user (
+  id int NOT NULL AUTO_INCREMENT,
+  username varchar(40) NOT NULL,
+  PRIMARY KEY (ID)
+);
+
+/*  Execute this file from the command line by typing:
+ *    mysql -u root < server/schema.sql
+ *  to create the database and the tables.*/
+
